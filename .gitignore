@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local datasets and generated artifacts
+processed/
+*.tsv
+*.zip
+
+# Large local experiments
+submission_word2vec_avg.csv
+submission_word2vec_avg_report.md
