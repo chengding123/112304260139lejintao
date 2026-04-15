@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import csv
 import io
 import itertools
 import re
 import zipfile
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -14,14 +14,14 @@ from scipy.stats import rankdata
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 
 
-ROOT = Path(__file__).resolve().parent
-COMPETITION_ZIP = ROOT / "word2vec-nlp-tutorial.zip"
-SUBMISSION_PATH = ROOT / "submission_oof.csv"
-REPORT_PATH = ROOT / "submission_oof_report.md"
+ROOT = Path(__file__).resolve().parent.parent
+COMPETITION_ZIP = ROOT / "data" / "raw" / "word2vec-nlp-tutorial.zip"
+SUBMISSION_PATH = ROOT / "submissions" / "submission_ultra.csv"
+REPORT_PATH = ROOT / "docs" / "reports" / "submission_ultra_report.md"
 
 
 def strip_html(text: str) -> str:
@@ -54,10 +54,18 @@ def read_competition_file(file_name: str, sep: str = "\t") -> pd.DataFrame:
                                 quoting=csv.QUOTE_MINIMAL,
                                 on_bad_lines="skip",
                             )
-                        return pd.read_csv(f, sep=sep, quoting=csv.QUOTE_MINIMAL)
+                        return pd.read_csv(
+                            f,
+                            sep=sep,
+                            quoting=csv.QUOTE_MINIMAL,
+                        )
 
         with outer_zip.open(file_name) as f:
-            return pd.read_csv(f, sep=sep, quoting=csv.QUOTE_MINIMAL)
+            return pd.read_csv(
+                f,
+                sep=sep,
+                quoting=csv.QUOTE_MINIMAL,
+            )
 
 
 def build_word_vectorizer() -> TfidfVectorizer:
@@ -98,7 +106,8 @@ def build_nb_vectorizer() -> CountVectorizer:
 
 
 def scaled_ranks(values: np.ndarray) -> np.ndarray:
-    return rankdata(values, method="average") / len(values)
+    ranks = rankdata(values, method="average")
+    return ranks / len(ranks)
 
 
 def fit_nbsvm(x_train, y_train):
@@ -106,7 +115,12 @@ def fit_nbsvm(x_train, y_train):
     pos = x_train[y == 1].sum(axis=0) + 1
     neg = x_train[y == 0].sum(axis=0) + 1
     ratio = np.log(np.asarray(pos / neg)).ravel()
-    model = LogisticRegression(solver="liblinear", C=4.0, max_iter=1000)
+
+    model = LogisticRegression(
+        solver="liblinear",
+        C=4.0,
+        max_iter=1000,
+    )
     model.fit(x_train.multiply(ratio), y)
     return ratio, model
 
@@ -115,12 +129,13 @@ def predict_nbsvm(x, ratio, model) -> np.ndarray:
     return model.predict_proba(x.multiply(ratio))[:, 1]
 
 
-def search_best_blend(predictions: dict[str, np.ndarray], y_true: np.ndarray):
+def search_best_blend(predictions: dict[str, np.ndarray], y_true: pd.Series):
     names = list(predictions)
     ranked = {name: scaled_ranks(pred) for name, pred in predictions.items()}
-    steps = [i / 20 for i in range(21)]
+
     best_auc = -1.0
     best_weights: dict[str, float] = {}
+    steps = [i / 20 for i in range(21)]
 
     for weights in itertools.product(steps, repeat=len(names)):
         if abs(sum(weights) - 1.0) > 1e-9:
@@ -161,6 +176,16 @@ def main() -> None:
     unlabeled_df["word_text"] = unlabeled_df["review"].map(normalize_word_text)
     unlabeled_df["char_text"] = unlabeled_df["review"].map(normalize_char_text)
 
+    train_df, valid_df = train_test_split(
+        labeled_df,
+        test_size=0.2,
+        random_state=42,
+        stratify=labeled_df["sentiment"],
+    )
+
+    y_train = train_df["sentiment"]
+    y_valid = valid_df["sentiment"]
+
     all_word_text = pd.concat(
         [labeled_df["word_text"], test_df["word_text"], unlabeled_df["word_text"]],
         ignore_index=True,
@@ -172,89 +197,75 @@ def main() -> None:
 
     word_vectorizer = build_word_vectorizer()
     word_vectorizer.fit(all_word_text)
-    x_word = word_vectorizer.transform(labeled_df["word_text"])
-    x_test_word = word_vectorizer.transform(test_df["word_text"])
+    x_train_word = word_vectorizer.transform(train_df["word_text"])
+    x_valid_word = word_vectorizer.transform(valid_df["word_text"])
 
     char_vectorizer = build_char_vectorizer()
     char_vectorizer.fit(all_char_text)
-    x_char = char_vectorizer.transform(labeled_df["char_text"])
-    x_test_char = char_vectorizer.transform(test_df["char_text"])
+    x_train_char = char_vectorizer.transform(train_df["char_text"])
+    x_valid_char = char_vectorizer.transform(valid_df["char_text"])
 
     nb_vectorizer = build_nb_vectorizer()
     nb_vectorizer.fit(all_word_text)
-    x_nb = nb_vectorizer.transform(labeled_df["word_text"])
+    x_train_nb = nb_vectorizer.transform(train_df["word_text"])
+    x_valid_nb = nb_vectorizer.transform(valid_df["word_text"])
+
+    word_lr = LogisticRegression(solver="liblinear", C=4.0, max_iter=1000)
+    word_lr.fit(x_train_word, y_train)
+    valid_word_lr = word_lr.predict_proba(x_valid_word)[:, 1]
+    auc_word_lr = roc_auc_score(y_valid, valid_word_lr)
+
+    char_lr = LogisticRegression(solver="liblinear", C=3.0, max_iter=1000)
+    char_lr.fit(x_train_char, y_train)
+    valid_char_lr = char_lr.predict_proba(x_valid_char)[:, 1]
+    auc_char_lr = roc_auc_score(y_valid, valid_char_lr)
+
+    word_svc = LinearSVC(C=0.5)
+    word_svc.fit(x_train_word, y_train)
+    valid_word_svc = word_svc.decision_function(x_valid_word)
+    auc_word_svc = roc_auc_score(y_valid, valid_word_svc)
+
+    nb_ratio, nbsvm_model = fit_nbsvm(x_train_nb, y_train)
+    valid_nbsvm = predict_nbsvm(x_valid_nb, nb_ratio, nbsvm_model)
+    auc_nbsvm = roc_auc_score(y_valid, valid_nbsvm)
+
+    valid_predictions = {
+        "word_lr": valid_word_lr,
+        "char_lr": valid_char_lr,
+        "word_svc": valid_word_svc,
+        "nbsvm": valid_nbsvm,
+    }
+    auc_blend, best_weights = search_best_blend(valid_predictions, y_valid)
+
+    x_full_word = word_vectorizer.transform(labeled_df["word_text"])
+    x_test_word = word_vectorizer.transform(test_df["word_text"])
+
+    x_full_char = char_vectorizer.transform(labeled_df["char_text"])
+    x_test_char = char_vectorizer.transform(test_df["char_text"])
+
+    x_full_nb = nb_vectorizer.transform(labeled_df["word_text"])
     x_test_nb = nb_vectorizer.transform(test_df["word_text"])
 
-    y = labeled_df["sentiment"].to_numpy()
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    full_word_lr = LogisticRegression(solver="liblinear", C=4.0, max_iter=1000)
+    full_word_lr.fit(x_full_word, labeled_df["sentiment"])
+    test_word_lr = full_word_lr.predict_proba(x_test_word)[:, 1]
 
-    oof_word_lr = np.zeros(len(labeled_df), dtype=float)
-    oof_char_lr = np.zeros(len(labeled_df), dtype=float)
-    oof_word_svc = np.zeros(len(labeled_df), dtype=float)
-    oof_nbsvm = np.zeros(len(labeled_df), dtype=float)
+    full_char_lr = LogisticRegression(solver="liblinear", C=3.0, max_iter=1000)
+    full_char_lr.fit(x_full_char, labeled_df["sentiment"])
+    test_char_lr = full_char_lr.predict_proba(x_test_char)[:, 1]
 
-    test_word_lr_folds = []
-    test_char_lr_folds = []
-    test_word_svc_folds = []
-    test_nbsvm_folds = []
-    fold_aucs = []
+    full_word_svc = LinearSVC(C=0.5)
+    full_word_svc.fit(x_full_word, labeled_df["sentiment"])
+    test_word_svc = full_word_svc.decision_function(x_test_word)
 
-    for fold, (train_idx, valid_idx) in enumerate(skf.split(x_word, y), start=1):
-        y_train = y[train_idx]
-        y_valid = y[valid_idx]
-
-        x_train_word = x_word[train_idx]
-        x_valid_word = x_word[valid_idx]
-        x_train_char = x_char[train_idx]
-        x_valid_char = x_char[valid_idx]
-        x_train_nb = x_nb[train_idx]
-        x_valid_nb = x_nb[valid_idx]
-
-        word_lr = LogisticRegression(solver="liblinear", C=4.0, max_iter=1000)
-        word_lr.fit(x_train_word, y_train)
-        oof_word_lr[valid_idx] = word_lr.predict_proba(x_valid_word)[:, 1]
-        test_word_lr_folds.append(word_lr.predict_proba(x_test_word)[:, 1])
-
-        char_lr = LogisticRegression(solver="liblinear", C=3.0, max_iter=1000)
-        char_lr.fit(x_train_char, y_train)
-        oof_char_lr[valid_idx] = char_lr.predict_proba(x_valid_char)[:, 1]
-        test_char_lr_folds.append(char_lr.predict_proba(x_test_char)[:, 1])
-
-        word_svc = LinearSVC(C=0.5)
-        word_svc.fit(x_train_word, y_train)
-        oof_word_svc[valid_idx] = word_svc.decision_function(x_valid_word)
-        test_word_svc_folds.append(word_svc.decision_function(x_test_word))
-
-        nb_ratio, nbsvm_model = fit_nbsvm(x_train_nb, y_train)
-        oof_nbsvm[valid_idx] = predict_nbsvm(x_valid_nb, nb_ratio, nbsvm_model)
-        test_nbsvm_folds.append(predict_nbsvm(x_test_nb, nb_ratio, nbsvm_model))
-
-        fold_pred = (
-            0.2 * scaled_ranks(oof_char_lr[valid_idx])
-            + 0.4 * scaled_ranks(oof_word_svc[valid_idx])
-            + 0.4 * scaled_ranks(oof_nbsvm[valid_idx])
-        )
-        fold_auc = roc_auc_score(y_valid, fold_pred)
-        fold_aucs.append(fold_auc)
-        print(f"fold_{fold}_auc={fold_auc:.6f}")
-
-    predictions = {
-        "word_lr": oof_word_lr,
-        "char_lr": oof_char_lr,
-        "word_svc": oof_word_svc,
-        "nbsvm": oof_nbsvm,
-    }
-    auc_word_lr = roc_auc_score(y, oof_word_lr)
-    auc_char_lr = roc_auc_score(y, oof_char_lr)
-    auc_word_svc = roc_auc_score(y, oof_word_svc)
-    auc_nbsvm = roc_auc_score(y, oof_nbsvm)
-    auc_blend, best_weights = search_best_blend(predictions, y)
+    full_nb_ratio, full_nbsvm_model = fit_nbsvm(x_full_nb, labeled_df["sentiment"])
+    test_nbsvm = predict_nbsvm(x_test_nb, full_nb_ratio, full_nbsvm_model)
 
     test_predictions = {
-        "word_lr": np.mean(test_word_lr_folds, axis=0),
-        "char_lr": np.mean(test_char_lr_folds, axis=0),
-        "word_svc": np.mean(test_word_svc_folds, axis=0),
-        "nbsvm": np.mean(test_nbsvm_folds, axis=0),
+        "word_lr": test_word_lr,
+        "char_lr": test_char_lr,
+        "word_svc": test_word_svc,
+        "nbsvm": test_nbsvm,
     }
     blend_test = blend_predictions(test_predictions, best_weights)
 
@@ -268,28 +279,27 @@ def main() -> None:
     REPORT_PATH.write_text(
         "\n".join(
             [
-                "# OOF AUC 提交说明",
+                "# Ultra AUC 提交说明",
                 "",
-                f"- 5 折 OOF 词级 LR AUC: {auc_word_lr:.6f}",
-                f"- 5 折 OOF 字符级 LR AUC: {auc_char_lr:.6f}",
-                f"- 5 折 OOF 词级 LinearSVC AUC: {auc_word_svc:.6f}",
-                f"- 5 折 OOF NB-SVM AUC: {auc_nbsvm:.6f}",
-                f"- 5 折 OOF 最优融合 AUC: {auc_blend:.6f}",
-                f"- 折内融合 AUC 均值: {np.mean(fold_aucs):.6f}",
+                f"- 词级 LR 验证 AUC: {auc_word_lr:.6f}",
+                f"- 字符级 LR 验证 AUC: {auc_char_lr:.6f}",
+                f"- 词级 LinearSVC 验证 AUC: {auc_word_svc:.6f}",
+                f"- NB-SVM 验证 AUC: {auc_nbsvm:.6f}",
+                f"- 最优融合验证 AUC: {auc_blend:.6f}",
                 f"- 最优融合权重: {weight_text}",
                 "- 无标签数据用途: 参与向量器词表拟合，但不参与监督训练。",
-                "- 提交文件: submission_oof.csv",
+                "- 提交文件: submission_ultra.csv",
                 "- 注意: 为适配 AUC，提交值使用融合后的排序分数，而不是硬标签。",
             ]
         ),
         encoding="utf-8",
     )
 
-    print(f"oof_word_lr_auc={auc_word_lr:.6f}")
-    print(f"oof_char_lr_auc={auc_char_lr:.6f}")
-    print(f"oof_word_svc_auc={auc_word_svc:.6f}")
-    print(f"oof_nbsvm_auc={auc_nbsvm:.6f}")
-    print(f"oof_blend_auc={auc_blend:.6f}")
+    print(f"auc_word_lr={auc_word_lr:.6f}")
+    print(f"auc_char_lr={auc_char_lr:.6f}")
+    print(f"auc_word_svc={auc_word_svc:.6f}")
+    print(f"auc_nbsvm={auc_nbsvm:.6f}")
+    print(f"auc_blend={auc_blend:.6f}")
     print(f"weights={best_weights}")
     print(f"saved: {SUBMISSION_PATH}")
     print(f"saved: {REPORT_PATH}")

@@ -5,10 +5,11 @@ __pycache__/
 *.pyd
 
 # Local datasets and generated artifacts
-processed/
-*.tsv
-*.zip
+data/raw/
+data/processed/
 
-# Large local experiments
-submission_word2vec_avg.csv
-submission_word2vec_avg_report.md
+# Optional local experiments
+submissions/submission_word2vec_avg.csv
+docs/reports/submission_word2vec_avg_report.md
+submissions/submission_multiseed_oof.csv
+docs/reports/submission_multiseed_oof_report.md

@@ -15,10 +15,10 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
 
-ROOT = Path(__file__).resolve().parent
-COMPETITION_ZIP = ROOT / "word2vec-nlp-tutorial.zip"
-SUBMISSION_PATH = ROOT / "submission_word2vec_avg.csv"
-REPORT_PATH = ROOT / "submission_word2vec_avg_report.md"
+ROOT = Path(__file__).resolve().parent.parent
+COMPETITION_ZIP = ROOT / "data" / "raw" / "word2vec-nlp-tutorial.zip"
+SUBMISSION_PATH = ROOT / "submissions" / "submission_word2vec_avg.csv"
+REPORT_PATH = ROOT / "docs" / "reports" / "submission_word2vec_avg_report.md"
 
 
 def strip_html(text: str) -> str:

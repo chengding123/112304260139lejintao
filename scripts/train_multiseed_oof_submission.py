@@ -18,10 +18,10 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.svm import LinearSVC
 
 
-ROOT = Path(__file__).resolve().parent
-COMPETITION_ZIP = ROOT / "word2vec-nlp-tutorial.zip"
-SUBMISSION_PATH = ROOT / "submission_multiseed_oof.csv"
-REPORT_PATH = ROOT / "submission_multiseed_oof_report.md"
+ROOT = Path(__file__).resolve().parent.parent
+COMPETITION_ZIP = ROOT / "data" / "raw" / "word2vec-nlp-tutorial.zip"
+SUBMISSION_PATH = ROOT / "submissions" / "submission_multiseed_oof.csv"
+REPORT_PATH = ROOT / "docs" / "reports" / "submission_multiseed_oof_report.md"
 SEEDS = (13, 42, 2024)
 
 

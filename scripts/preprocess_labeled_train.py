@@ -9,10 +9,10 @@ from bs4 import BeautifulSoup
 from sklearn.model_selection import train_test_split
 
 
-ROOT = Path(__file__).resolve().parent
-ZIP_PATH = ROOT / "labeledTrainData.tsv.zip"
-RAW_TSV_PATH = ROOT / "labeledTrainData.tsv"
-OUTPUT_DIR = ROOT / "processed"
+ROOT = Path(__file__).resolve().parent.parent
+ZIP_PATH = ROOT / "data" / "raw" / "labeledTrainData.tsv.zip"
+RAW_TSV_PATH = ROOT / "data" / "raw" / "labeledTrainData.tsv"
+OUTPUT_DIR = ROOT / "data" / "processed"
 FULL_OUTPUT_PATH = OUTPUT_DIR / "labeledTrainData_clean.csv"
 TRAIN_OUTPUT_PATH = OUTPUT_DIR / "train_split.csv"
 VALID_OUTPUT_PATH = OUTPUT_DIR / "valid_split.csv"
