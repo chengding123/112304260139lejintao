@@ -13,7 +13,7 @@ digit_recognizer_data/
 # Model checkpoints are reproducible from scripts and kept local
 *.pt
 *.pth
+!cnn_digit_web_app/model.pth
 
 # Local archive from Kaggle
 digit-recognizer.zip
-
