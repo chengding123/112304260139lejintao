@@ -236,8 +236,8 @@ with gr.Blocks(title="CNN 手写数字识别系统", css=CSS) as demo:
             <div class="badge">Kaggle Digit Recognizer · PyTorch CNN · Gradio Web</div>
             <h1>CNN 手写数字识别系统</h1>
             <p>
-                基于 Kaggle Digit Recognizer 数据集训练的 PyTorch CNN 模型。支持上传图片和在线手写输入，
-                自动完成灰度化、28x28 归一化、黑白背景判断，并输出 Top-3 预测概率。
+                基于 Kaggle Digit Recognizer 数据集训练的 PyTorch CNN 模型。页面只保留在线手写输入功能，
+                自动完成 28x28 归一化、黑白背景判断，并输出识别结果和 Top-3 预测概率。
             </p>
         </section>
         """
@@ -251,38 +251,27 @@ with gr.Blocks(title="CNN 手写数字识别系统", css=CSS) as demo:
     gr.HTML(
         """
         <div class="panel-note">
-            <strong>使用说明</strong>：建议上传或绘制单个数字，数字尽量居中、线条尽量清晰。
+            <strong>使用说明</strong>：在手写板中写一个 0-9 的单个数字，数字尽量居中、线条尽量清晰。
             系统会自动适配白底黑字和黑底白字图片。
         </div>
         """
     )
 
-    with gr.Tab("上传图片识别"):
-        with gr.Row():
-            upload = gr.Image(type="pil", label="上传手写数字图片", height=320)
-            with gr.Column():
-                upload_label = gr.Textbox(label="识别结果", interactive=False)
-                upload_probs = gr.Label(label="Top-3 概率", num_top_classes=3)
-                upload_button = gr.Button("开始识别", variant="primary")
-        upload.change(predict_uploaded, inputs=upload, outputs=[upload_label, upload_probs])
-        upload_button.click(predict_uploaded, inputs=upload, outputs=[upload_label, upload_probs])
-
-    with gr.Tab("手写板识别"):
-        gr.HTML('<p class="tip">在画布上写一个 0-9 的数字，点击识别。线条粗一点、数字居中时效果更稳定。</p>')
-        with gr.Row():
-            sketch = gr.ImageEditor(type="pil", label="在线手写输入", height=360)
-            with gr.Column():
-                sketch_label = gr.Textbox(label="识别结果", interactive=False)
-                sketch_probs = gr.Label(label="Top-3 概率", num_top_classes=3)
-                sketch_button = gr.Button("识别手写数字", variant="primary")
-        sketch.change(predict_sketch, inputs=sketch, outputs=[sketch_label, sketch_probs])
-        sketch_button.click(predict_sketch, inputs=sketch, outputs=[sketch_label, sketch_probs])
+    gr.HTML('<p class="tip">手写板是当前页面唯一输入方式。线条粗一点、数字居中时效果更稳定。</p>')
+    with gr.Row():
+        sketch = gr.ImageEditor(type="pil", label="在线手写输入", height=420)
+        with gr.Column():
+            sketch_label = gr.Textbox(label="识别结果", interactive=False)
+            sketch_probs = gr.Label(label="Top-3 概率", num_top_classes=3)
+            sketch_button = gr.Button("识别手写数字", variant="primary")
+    sketch.change(predict_sketch, inputs=sketch, outputs=[sketch_label, sketch_probs])
+    sketch_button.click(predict_sketch, inputs=sketch, outputs=[sketch_label, sketch_probs])
 
     gr.HTML(
         """
         <div class="panel-note">
-            <strong>实验对应关系</strong>：该网站对应报告中的“实验二：模型封装为 Web 部署”和
-            “实验三：交互式手写识别系统”。
+            <strong>实验对应关系</strong>：该网站重点展示报告中的“实验三：交互式手写识别系统”，
+            使用实验一训练好的 CNN 模型完成在线手写数字识别。
         </div>
         """
     )
