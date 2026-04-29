@@ -1,4 +1,6 @@
+import base64
 import os
+from io import BytesIO
 from pathlib import Path
 
 import gradio as gr
@@ -101,6 +103,24 @@ def predict_sketch(image):
 
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image.astype(np.uint8))
+
+    return predict_uploaded(image)
+
+
+@torch.no_grad()
+def predict_canvas(data_url: str):
+    if not data_url:
+        return "请先在手写板中写一个数字", {}
+
+    try:
+        _, encoded = data_url.split(",", 1)
+        image = Image.open(BytesIO(base64.b64decode(encoded))).convert("RGB")
+    except Exception:
+        return "手写板数据读取失败，请清空后重新书写", {}
+
+    gray = np.asarray(image.convert("L"), dtype=np.uint8)
+    if float((gray < 245).mean()) < 0.005:
+        return "请先在手写板中写一个数字", {}
 
     return predict_uploaded(image)
 
@@ -226,10 +246,135 @@ body, .gradio-container {
 .tabs button {
     font-weight: 700 !important;
 }
+.draw-card {
+    padding: 20px;
+    border-radius: 28px;
+    background: rgba(255,253,247,.86);
+    border: 1px solid rgba(24, 33, 47, .10);
+    box-shadow: 0 20px 50px rgba(24, 33, 47, .10);
+}
+#digit-canvas {
+    display: block;
+    width: min(100%, 430px);
+    aspect-ratio: 1 / 1;
+    margin: 0 auto 16px;
+    border-radius: 24px;
+    background: #ffffff;
+    border: 2px solid rgba(24, 33, 47, .15);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.9);
+    cursor: crosshair;
+    touch-action: none;
+}
+.canvas-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+.tool-btn {
+    min-width: 92px;
+    padding: 10px 16px;
+    border: 1px solid rgba(24, 33, 47, .14);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--ink);
+    cursor: pointer;
+    font-weight: 700;
+}
+.tool-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    border-color: transparent;
+    color: #17202a;
+}
 """
 
 
-with gr.Blocks(title="CNN 手写数字识别系统", css=CSS) as demo:
+APP_JS = """
+function () {
+    const setupCanvas = () => {
+        const canvas = document.getElementById("digit-canvas");
+        if (!canvas || canvas.dataset.ready === "true") {
+            return Boolean(canvas && canvas.dataset.ready === "true");
+        }
+        canvas.dataset.ready = "true";
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const brushButton = document.getElementById("brush-tool");
+        const eraserButton = document.getElementById("eraser-tool");
+        const clearButton = document.getElementById("clear-canvas");
+        if (!brushButton || !eraserButton || !clearButton) {
+            canvas.dataset.ready = "false";
+            return false;
+        }
+        let drawing = false;
+        let tool = "brush";
+
+        const fillWhite = () => {
+            ctx.save();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        };
+
+        const setTool = (nextTool) => {
+            tool = nextTool;
+            brushButton.classList.toggle("active", tool === "brush");
+            eraserButton.classList.toggle("active", tool === "eraser");
+        };
+
+        const point = (event) => {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (event.clientX - rect.left) * canvas.width / rect.width,
+                y: (event.clientY - rect.top) * canvas.height / rect.height
+            };
+        };
+
+        const strokeTo = (event) => {
+            if (!drawing) return;
+            event.preventDefault();
+            const pos = point(event);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = tool === "brush" ? 28 : 38;
+            ctx.strokeStyle = tool === "brush" ? "#000000" : "#ffffff";
+            ctx.stroke();
+        };
+
+        canvas.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            drawing = true;
+            canvas.setPointerCapture(event.pointerId);
+            const pos = point(event);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            strokeTo(event);
+        });
+        canvas.addEventListener("pointermove", strokeTo);
+        canvas.addEventListener("pointerup", () => drawing = false);
+        canvas.addEventListener("pointercancel", () => drawing = false);
+        brushButton.addEventListener("click", () => setTool("brush"));
+        eraserButton.addEventListener("click", () => setTool("eraser"));
+        clearButton.addEventListener("click", fillWhite);
+
+        fillWhite();
+        setTool("brush");
+        return true;
+    };
+
+    let attempts = 0;
+    const timer = setInterval(() => {
+        attempts += 1;
+        if (setupCanvas() || attempts > 20) {
+            clearInterval(timer);
+        }
+    }, 200);
+}
+"""
+
+
+with gr.Blocks(title="CNN 手写数字识别系统", css=CSS, js=APP_JS) as demo:
     gr.HTML(
         f"""
         <section class="hero">
@@ -257,15 +402,31 @@ with gr.Blocks(title="CNN 手写数字识别系统", css=CSS) as demo:
         """
     )
 
-    gr.HTML('<p class="tip">手写板是当前页面唯一输入方式。线条粗一点、数字居中时效果更稳定。</p>')
+    gr.HTML('<p class="tip">手写板只保留画笔和擦除功能。线条粗一点、数字居中时效果更稳定。</p>')
     with gr.Row():
-        sketch = gr.ImageEditor(type="pil", label="在线手写输入", height=420)
+        gr.HTML(
+            """
+            <div class="draw-card">
+                <canvas id="digit-canvas" width="420" height="420" aria-label="手写数字画板"></canvas>
+                <div class="canvas-toolbar">
+                    <button id="brush-tool" class="tool-btn active" type="button">画笔</button>
+                    <button id="eraser-tool" class="tool-btn" type="button">擦除</button>
+                    <button id="clear-canvas" class="tool-btn" type="button">清空</button>
+                </div>
+            </div>
+            """
+        )
         with gr.Column():
             sketch_label = gr.Textbox(label="识别结果", interactive=False)
             sketch_probs = gr.Label(label="Top-3 概率", num_top_classes=3)
             sketch_button = gr.Button("识别手写数字", variant="primary")
-    sketch.change(predict_sketch, inputs=sketch, outputs=[sketch_label, sketch_probs])
-    sketch_button.click(predict_sketch, inputs=sketch, outputs=[sketch_label, sketch_probs])
+            canvas_data = gr.Textbox(visible=False)
+    sketch_button.click(
+        predict_canvas,
+        inputs=canvas_data,
+        outputs=[sketch_label, sketch_probs],
+        js='() => document.getElementById("digit-canvas").toDataURL("image/png")',
+    )
 
     gr.HTML(
         """
