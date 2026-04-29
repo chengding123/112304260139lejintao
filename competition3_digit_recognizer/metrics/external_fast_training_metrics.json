@@ -1,0 +1,42 @@
+{
+  "device": "cpu",
+  "external_root": "external_digit_data",
+  "external_dataset_sizes": {
+    "total": 80000,
+    "kaggle_train": 42000,
+    "kaggle_test": 28000
+  },
+  "history": {
+    "pretrain": [
+      {
+        "epoch": 1,
+        "train_loss": 0.17954934402778744,
+        "train_acc": 0.9486125
+      }
+    ],
+    "finetune": [
+      {
+        "epoch": 1,
+        "train_loss": 0.08129063046830041,
+        "train_acc": 0.9756190476190476
+      },
+      {
+        "epoch": 2,
+        "train_loss": 0.05186513663846112,
+        "train_acc": 0.9844047619047619
+      },
+      {
+        "epoch": 3,
+        "train_loss": 0.03031824252765537,
+        "train_acc": 0.9911428571428571
+      },
+      {
+        "epoch": 4,
+        "train_loss": 0.021523457096557,
+        "train_acc": 0.9938095238095238
+      }
+    ]
+  },
+  "model_path": "external_wide_seed2029_fast.pt",
+  "submission_path": "external_wide_seed2029_fast_submission.csv"
+}

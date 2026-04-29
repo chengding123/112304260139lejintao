@@ -1,0 +1,54 @@
+{
+  "device": "cpu",
+  "weights": {
+    "full_digit_cnn_seed3407.pt": 0.2,
+    "full_digit_cnn_seed2026.pt": 0.16,
+    "full_digit_cnn_seed7.pt": 0.16,
+    "pseudo_digit_cnn_seed31415.pt": 0.12,
+    "wide_full_seed2027.pt": 0.26,
+    "ensemble_models/fold_1.pt": 0.05,
+    "ensemble_models/fold_2.pt": 0.05
+  },
+  "output_files": [
+    "submission_candidate_wideblend.csv",
+    "submission.csv"
+  ],
+  "tta_shifts": [
+    [
+      -1,
+      -1
+    ],
+    [
+      -1,
+      0
+    ],
+    [
+      -1,
+      1
+    ],
+    [
+      0,
+      -1
+    ],
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      -1
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      1
+    ]
+  ]
+}

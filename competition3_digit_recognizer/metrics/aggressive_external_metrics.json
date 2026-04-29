@@ -1,0 +1,57 @@
+{
+  "device": "cpu",
+  "weights": {
+    "full_digit_cnn_seed3407.pt": 0.15,
+    "full_digit_cnn_seed2026.pt": 0.1,
+    "full_digit_cnn_seed7.pt": 0.1,
+    "pseudo_digit_cnn_seed31415.pt": 0.07,
+    "wide_full_seed2027.pt": 0.17,
+    "external_wide_seed2028.pt": 0.18,
+    "external_wide_seed2029_fast.pt": 0.18,
+    "ensemble_models/fold_1.pt": 0.025,
+    "ensemble_models/fold_2.pt": 0.025
+  },
+  "output_files": [
+    "submission.csv",
+    "submission_aggressive_final.csv"
+  ],
+  "tta_shifts": [
+    [
+      -1,
+      -1
+    ],
+    [
+      -1,
+      0
+    ],
+    [
+      -1,
+      1
+    ],
+    [
+      0,
+      -1
+    ],
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      -1
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "note": "Aggressive final blend adds two external-data-pretrained wide models on top of the previous full-data and pseudo-label ensemble."
+}

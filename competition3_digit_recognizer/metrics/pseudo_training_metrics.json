@@ -1,0 +1,54 @@
+{
+  "device": "cpu",
+  "epochs": 8,
+  "pseudo_count": 27974,
+  "pseudo_weight_stats": {
+    "min": 0.20000000298023224,
+    "max": 0.3499999940395355,
+    "mean": 0.34972649812698364
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.5549981675152575,
+      "train_acc": 0.8291651184725756
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.09046228238421826,
+      "train_acc": 0.9719038500014291
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.06421863725369249,
+      "train_acc": 0.9806499556978306
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.0478518710723746,
+      "train_acc": 0.9856089404636008
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.037795697574498105,
+      "train_acc": 0.9883385257381313
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.02923296912798662,
+      "train_acc": 0.9905536342069912
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.023628075284843505,
+      "train_acc": 0.9926687055191928
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.022022908463362127,
+      "train_acc": 0.9935690399291165
+    }
+  ],
+  "model_path": "pseudo_digit_cnn_seed31415.pt",
+  "submission_path": "pseudo_seed31415_submission.csv"
+}

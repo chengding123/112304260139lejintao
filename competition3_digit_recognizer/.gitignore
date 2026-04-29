@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local datasets and generated caches
+data/raw/
+data/processed/
+external_digit_data/
+digit_recognizer_data/
+
+# Model checkpoints are reproducible from scripts and kept local
+*.pt
+*.pth
+
+# Local archive from Kaggle
+digit-recognizer.zip
+
